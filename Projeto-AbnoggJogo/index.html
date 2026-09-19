@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>Tutorial do Jogo — 4 Fases</title>
 <link rel="stylesheet" href="styles.css" />
 </head>
@@ -24,22 +24,31 @@
 
     <div class="hintBubble" id="hintBubble"><span id="hintText"></span></div>
 
+    <div class="touchControls" id="touchControls">
+      <div class="tc-move">
+        <button class="tcBtn" id="btnLeft" type="button" aria-label="Mover para a esquerda">&lt;</button>
+        <button class="tcBtn" id="btnRight" type="button" aria-label="Mover para a direita">&gt;</button>
+      </div>
+      <div class="tc-actions">
+        <button class="tcBtn tcWide" id="btnShoot" type="button">ATIRAR</button>
+        <button class="tcBtn tcWide" id="btnCrouch" type="button">AGACHAR</button>
+        <button class="tcBtn tcWide" id="btnJump" type="button">PULAR</button>
+      </div>
+    </div>
+
     <div class="overlay show" id="startOverlay">
-      <div class="miniflag">🚩</div>
       <h2>Tutorial do Jogo</h2>
       <p>Você vai passar por 4 fases curtas, cada uma ensinando um comando novo: mover, pular, se esconder e atirar. Preste atenção nas dicas na tela!</p>
       <button id="startBtn" type="button">Começar</button>
     </div>
 
     <div class="overlay" id="phaseCompleteOverlay">
-      <div class="miniflag">✅</div>
       <h2 id="phaseCompleteTitle">Parabéns!</h2>
       <p id="phaseCompleteText"></p>
       <button id="phaseCompleteBtn" type="button">Próxima fase ▸</button>
     </div>
 
     <div class="overlay" id="gameCompleteOverlay">
-      <div class="miniflag">🏆</div>
       <h2>Você completou o tutorial!</h2>
       <p>Você aprendeu a se mover, pular, se esconder e atirar. Bom jogo!</p>
       <button id="restartBtn" type="button">Jogar novamente</button>

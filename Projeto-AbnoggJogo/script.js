@@ -1,7 +1,7 @@
 (function(){
   "use strict";
 
-
+  // ---------- Setup ----------
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d");
   const TS = 40; 
@@ -21,6 +21,25 @@
   window.addEventListener("resize", resizeCanvas);
   resizeCanvas();
 
+ 
+  document.addEventListener("wheel", (e)=>{
+    if(e.ctrlKey) e.preventDefault();
+  }, {passive:false});
+  document.addEventListener("keydown", (e)=>{
+    if((e.ctrlKey || e.metaKey) && ["=","+","-","0"].includes(e.key)) e.preventDefault();
+  });
+  document.addEventListener("gesturestart", (e)=> e.preventDefault());
+  document.addEventListener("gesturechange", (e)=> e.preventDefault());
+  let lastTouchEnd = 0;
+  document.addEventListener("touchend", (e)=>{
+    const now = Date.now();
+    if(now - lastTouchEnd <= 300) e.preventDefault();
+    lastTouchEnd = now;
+  }, {passive:false});
+  document.addEventListener("touchmove", (e)=>{
+    if(e.touches.length > 1) e.preventDefault();
+  }, {passive:false});
+
   const chip = document.getElementById("chip");
   const counter = document.getElementById("counter");
   const bubble = document.getElementById("bubble");
@@ -39,7 +58,7 @@
   const gameCompleteOverlay = document.getElementById("gameCompleteOverlay");
   const restartBtn = document.getElementById("restartBtn");
 
-
+  // ---------- Level builder ----------
   function buildLevel(opts){
     const rows = opts.rows || 14;
     const cols = opts.cols;
@@ -108,7 +127,7 @@
     })
   };
 
-  
+  // ---------- Dialogue content ----------
   const PHASES = [
     {
       key:"move", title:"Fase 1: Mover", levelName:"move",
@@ -118,7 +137,7 @@
         {text:"Use as <b>SETAS</b> ou as teclas <b>WASD</b> para se mover!", keys:["←","→","W","A","S","D"]},
         {text:"Pense assim: as setas significam a mesma coisa que as letras.", keys:[]},
         {text:"Use <b>◀ / A</b> para ir para a esquerda e <b>▶ / D</b> para ir para a direita.", keys:["A","◀","▶","D"]},
-        {text:"Agora chegue até a bandeira 🚩 para completar a fase!", keys:[]}
+        {text:"Agora chegue até a bandeira para completar a fase!", keys:[]}
       ],
       complete:"Muito bem! Você aprendeu a se mover."
     },
@@ -129,7 +148,7 @@
         {text:"Ótimo! Agora vamos aprender a pular.", keys:[]},
         {text:"Pressione <b>ESPAÇO</b> (ou W / ↑) para pular sobre os buracos!", keys:["SPACE"]},
         {text:"Cuidado! Se você cair no buraco, volta para o começo da fase.", keys:[]},
-        {text:"Pule os obstáculos e chegue até a bandeira 🚩!", keys:["SPACE"]}
+        {text:"Pule os obstáculos e chegue até a bandeira!", keys:["SPACE"]}
       ],
       complete:"Muito bem! Você aprendeu a pular."
     },
@@ -140,7 +159,7 @@
         {text:"Muito bem! Agora vamos aprender a se esconder.", keys:[]},
         {text:"Existe uma fera patrulhando o caminho à frente. Se ela te ver de pé, você volta pro início.", keys:[]},
         {text:"Segure <b>CTRL</b> para se abaixar e se esconder dela!", keys:["CTRL"]},
-        {text:"Fique abaixado perto da fera e ao passar pela passagem baixa até a bandeira 🚩.", keys:["CTRL"]}
+        {text:"Fique abaixado perto da fera e ao passar pela passagem baixa até a bandeira.", keys:["CTRL"]}
       ],
       complete:"Muito bem! Você aprendeu a se esconder."
     },
@@ -151,28 +170,28 @@
         {text:"Última habilidade: atirar.", keys:[]},
         {text:"Clique com o <b>BOTÃO ESQUERDO DO MOUSE</b> para atirar!", keys:["CLIQUE"]},
         {text:"Use os alvos para praticar sua mira.", keys:["CLIQUE"]},
-        {text:"Alguns blocos bloqueiam o caminho — atire neles para destruí-los!", keys:["CLIQUE"]},
-        {text:"Destrua o bloqueio e chegue até a bandeira 🚩 para vencer o jogo!", keys:["CLIQUE"]}
+        {text:"Alguns blocos bloqueiam o caminho, atire neles para destruí-los!", keys:["CLIQUE"]},
+        {text:"Destrua o bloqueio e chegue até a bandeira para vencer o jogo!", keys:["CLIQUE"]}
       ],
       complete:"Parabéns! Você aprendeu todos os comandos."
     }
   ];
 
-  
+  // ---------- State ----------
   let phaseIndex = 0;
   let unlocked = new Set();
   let dialogueStep = 0;
-  let mode = "start"; 
+  let mode = "start"; // start | dialogue | play | phaseComplete | gameComplete
   let level = null;
   let player, projectiles, camX;
 
   function loadPhase(idx){
     const phase = PHASES[idx];
     level = LEVELS[phase.levelName];
-    
+    // reset breakable/target state each time phase is (re)loaded
     level.breakables.forEach(b => { level.grid[b.row][b.col] = "B"; });
     level.targets.forEach(t => { t.alive = true; level.grid[t.row][t.col] = "T"; });
-   
+    // instantiate runtime enemies from the level definition
     level.enemies = level.enemiesDef.map(e => ({
       x: e.minCol*TS, minX: e.minCol*TS, maxX: e.maxCol*TS - ENEMY_W,
       y: e.row*TS + TS - ENEMY_H, w: ENEMY_W, h: ENEMY_H,
@@ -196,16 +215,16 @@
     camX = 0;
   }
 
- 
+  // ---------- Recovery hint (camera zooms on the player + encouraging tip) ----------
   const FALL_MESSAGES = [
     "Quase lá! Calcule o momento certo de pular.",
     "Você consegue! Tenta pular um pouco antes do buraco.",
-    "Foi por pouco — vamos tentar de novo!"
+    "Foi por pouco, vamos tentar de novo!"
   ];
   const CAUGHT_MESSAGES = [
     "Ela te viu! Abaixe-se (Ctrl) antes de chegar perto.",
     "Quase! Segure Ctrl mais cedo da próxima vez.",
-    "Você consegue se esconder — tenta de novo!"
+    "Você consegue se esconder, tenta de novo!"
   ];
   const hint = { active:false, timer:0, duration:1.3 };
 
@@ -249,8 +268,9 @@
     } else {
       bubble.classList.remove("show");
       phase.unlock.forEach(u => unlocked.add(u));
+      updateTouchButtons();
       mode = "play";
-      counter.textContent = "🚩 vá até a bandeira";
+      counter.textContent = "vá até a bandeira";
       renderKeystrip([]);
     }
   }
@@ -259,7 +279,7 @@
     const allKeys = [
       {id:"A",label:"A"},{id:"W",label:"W"},{id:"S",label:"S"},{id:"D",label:"D"},
       {id:"←",label:"←"},{id:"↑",label:"↑"},{id:"→",label:"→"},
-      {id:"SPACE",label:"ESPAÇO"},{id:"CTRL",label:"CTRL"},{id:"CLIQUE",label:"CLIQUE 🖱"}
+      {id:"SPACE",label:"ESPAÇO"},{id:"CTRL",label:"CTRL"},{id:"CLIQUE",label:"CLIQUE"}
     ];
     keystrip.innerHTML = "";
     const relevant = mode==="dialogue" ? (activeList && activeList.length ? activeList : null) : null;
@@ -293,7 +313,7 @@
     phaseCompleteOverlay.classList.add("show");
   }
 
-  
+  // ---------- Input ----------
   const keys = new Set();
   window.addEventListener("keydown", (e)=>{
     const k = e.key;
@@ -331,10 +351,51 @@
   phaseCompleteBtn.addEventListener("click", nextFromPhaseComplete);
   restartBtn.addEventListener("click", restartGame);
 
+  // ---------- Touch HUD (mobile controls) ----------
+  const btnLeft = document.getElementById("btnLeft");
+  const btnRight = document.getElementById("btnRight");
+  const btnJump = document.getElementById("btnJump");
+  const btnCrouch = document.getElementById("btnCrouch");
+  const btnShoot = document.getElementById("btnShoot");
+
+  function bindHold(el, keyName){
+    const press = (e)=>{ e.preventDefault(); keys.add(keyName); el.classList.add("pressed"); };
+    const release = (e)=>{ if(e) e.preventDefault(); keys.delete(keyName); el.classList.remove("pressed"); };
+    el.addEventListener("touchstart", press, {passive:false});
+    el.addEventListener("touchend", release, {passive:false});
+    el.addEventListener("touchcancel", release, {passive:false});
+    el.addEventListener("mousedown", press);
+    el.addEventListener("mouseup", release);
+    el.addEventListener("mouseleave", release);
+  }
+  bindHold(btnLeft, "LEFT");
+  bindHold(btnRight, "RIGHT");
+  bindHold(btnJump, "SPACE");
+  bindHold(btnCrouch, "CTRL");
+
+  function fireShoot(e){
+    e.preventDefault();
+    if(mode==="play" && unlocked.has("shoot")) spawnProjectile();
+    btnShoot.classList.add("pressed");
+  }
+  btnShoot.addEventListener("touchstart", fireShoot, {passive:false});
+  btnShoot.addEventListener("touchend", (e)=>{ e.preventDefault(); btnShoot.classList.remove("pressed"); }, {passive:false});
+  btnShoot.addEventListener("mousedown", fireShoot);
+  btnShoot.addEventListener("mouseup", ()=> btnShoot.classList.remove("pressed"));
+
+  function updateTouchButtons(){
+    btnLeft.style.display = unlocked.has("move") ? "flex" : "none";
+    btnRight.style.display = unlocked.has("move") ? "flex" : "none";
+    btnJump.style.display = unlocked.has("jump") ? "flex" : "none";
+    btnCrouch.style.display = unlocked.has("crouch") ? "flex" : "none";
+    btnShoot.style.display = unlocked.has("shoot") ? "flex" : "none";
+  }
+
   function startGame(){
     startOverlay.classList.remove("show");
     phaseIndex = 0;
     unlocked = new Set();
+    updateTouchButtons();
     loadPhase(0);
   }
   function nextFromPhaseComplete(){
@@ -362,10 +423,10 @@
     });
   }
 
- 
+  // ---------- Collision helpers ----------
   function tileAt(col,row){
     if(row<0 || row>=level.rows) return ".";
-    if(col<0 || col>=level.cols) return "#"; 
+    if(col<0 || col>=level.cols) return "#"; // treat out-of-bounds sides as solid walls
     return level.grid[row][col];
   }
   function isSolid(ch){ return ch==="#" || ch==="L" || ch==="B"; }
@@ -406,7 +467,7 @@
     p.y = nextY;
   }
 
- 
+  // ---------- Update ----------
   let dt = 1/60, lastTime = performance.now();
 
   function update(){
@@ -421,7 +482,7 @@
       return;
     }
 
-  
+    // crouch
     const wantCrouch = unlocked.has("crouch") && keys.has("CTRL");
     const bottom = player.y + player.h;
     const newH = wantCrouch ? CROUCH_H : NORMAL_H;
@@ -431,7 +492,7 @@
     }
     player.crouching = wantCrouch;
 
-   
+    // horizontal input
     let vx = 0;
     if(unlocked.has("move")){
       if(keys.has("LEFT")||keys.has("A")){ vx = -MOVESPEED; player.facing = -1; }
@@ -439,14 +500,14 @@
     }
     player.vx = vx;
 
-    
+    // jump
     if(unlocked.has("jump") && player.onGround &&
        (keys.has("SPACE")||keys.has("UP")||keys.has("W"))){
       player.vy = -JUMP_V;
       player.onGround = false;
     }
 
-    
+    // gravity
     player.vy += GRAVITY*dt;
     if(player.vy > 1400) player.vy = 1400;
 
@@ -458,17 +519,17 @@
       player.checkpointY = player.y;
     }
 
-    
+    // fell into a pit — go back to the last safe spot instead of the start
     if(player.y > level.heightPx + 80){
       recoverAtCheckpoint(FALL_MESSAGES);
       return;
     }
 
-    
+    // camera
     const half = canvas.width/2;
     camX = Math.max(0, Math.min(player.x - half, level.widthPx - canvas.width));
 
-    
+    // enemies (the "bicho" you must hide from with Ctrl)
     for(const en of (level.enemies||[])){
       en.x += en.dir*en.speed*dt;
       if(en.x <= en.minX){ en.x = en.minX; en.dir = 1; }
@@ -484,7 +545,7 @@
       }
     }
 
-    
+    // projectiles
     for(const pr of projectiles){
       if(!pr.alive) continue;
       pr.x += pr.vx*dt;
@@ -505,7 +566,7 @@
     }
     projectiles = projectiles.filter(p=>p.alive);
 
-    
+    // win check
     const flagRect = {x: level.flagCol*TS, y: level.flagRow*TS - TS, w: TS, h: TS*2};
     if(rectsOverlap(player, flagRect)){
       completePhase();
@@ -678,7 +739,7 @@
     ctx.strokeRect(p.x+1, p.y+1, p.w-2, p.h-2);
   }
 
-
+  // ---------- Loop ----------
   function loop(now){
     dt = Math.min(0.032, (now-lastTime)/1000);
     lastTime = now;
